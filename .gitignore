@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+outputs/
+uploads/
+*.pkl
+*.zip
+.DS_Store

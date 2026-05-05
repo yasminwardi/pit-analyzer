@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pit Analyzer — Corrosion Particle Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   CSS Variables & Reset
+════════════════════════════════════════════════════════════ */
+:root {
+  --bg:        #080c0f;
+  --surface:   #0f1518;
+  --surf2:     #151c21;
+  --surf3:     #1c252b;
+  --border:    #1f2d35;
+  --border2:   #2a3d48;
+  --accent:    #00e5a0;
+  --accent2:   #00b87a;
+  --red:       #ff3b3b;
+  --blue:      #3b9eff;
+  --amber:     #ffb03b;
+  --text:      #d8e8e0;
+  --muted:     #4a6670;
+  --muted2:    #6a8a96;
+  --mono:      'Space Mono', monospace;
+  --sans:      'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Layout
+════════════════════════════════════════════════════════════ */
+.app {
+  display: grid;
+  grid-template-rows: 48px 1fr 32px;
+  height: 100vh;
+}
+
+/* ── topbar ─────────────────────────────────────────────── */
+.topbar {
+  background: #060a0c;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+}
+.topbar-logo {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.topbar-badge {
+  background: var(--accent);
+  color: #000;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+.topbar-spacer { flex: 1; }
+.topbar-dep {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  display: flex; gap: 12px;
+}
+.dep-ok   { color: var(--accent); }
+.dep-miss { color: var(--red); }
+
+/* ── main area ──────────────────────────────────────────── */
+.main {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  overflow: hidden;
+}
+
+/* ── sidebar ────────────────────────────────────────────── */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── right panel ────────────────────────────────────────── */
+.right {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+/* ── statusbar ──────────────────────────────────────────── */
+.statusbar {
+  background: #050809;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  gap: 16px;
+}
+.status-msg { flex: 1; }
+.status-msg.ok  { color: var(--accent); }
+.status-msg.err { color: var(--red); }
+.status-msg.inf { color: var(--blue); }
+
+/* ═══════════════════════════════════════════════════════════
+   Sidebar Sections
+════════════════════════════════════════════════════════════ */
+.section {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.step-badge {
+  background: var(--border2);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.step-badge.active {
+  background: var(--accent);
+  color: #000;
+}
+.section-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+.section-title.active { color: var(--accent); }
+
+/* ── form elements ──────────────────────────────────────── */
+.field { margin-bottom: 10px; }
+.field label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted2);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+.field-hint {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.input-row { display: flex; gap: 6px; align-items: stretch; }
+
+input[type="text"], input[type="number"] {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+input[type="text"]:focus,
+input[type="number"]:focus { border-color: var(--accent); }
+input[type="number"] { width: 80px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+/* ── buttons ────────────────────────────────────────────── */
+.btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover:not(:disabled) { background: #00ffb3; }
+.btn-secondary { background: var(--surf3); color: var(--text); border: 1px solid var(--border2); }
+.btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); }
+.btn-danger:hover:not(:disabled) { background: var(--red); color: #fff; }
+.btn-full { width: 100%; }
+.btn-small { padding: 5px 10px; font-size: 10px; }
+
+/* ── progress bar ───────────────────────────────────────── */
+.progress-wrap {
+  margin-top: 8px;
+  display: none;
+}
+.progress-wrap.visible { display: block; }
+.progress-track {
+  height: 3px;
+  background: var(--surf3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.progress-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted2);
+  margin-top: 4px;
+}
+
+/* ── pit list ───────────────────────────────────────────── */
+.pit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  margin-bottom: 4px;
+}
+.pit-id { font-family: var(--mono); font-size: 10px; color: var(--accent); width: 60px; flex-shrink: 0; }
+.pit-coords { font-family: var(--mono); font-size: 9px; color: var(--muted); flex: 1; }
+.pit-del { background: none; border: none; color: var(--red); cursor: pointer; font-size: 14px; padding: 0 2px; }
+.pit-del:hover { color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════
+   Right Panel — Image canvas + tabs
+════════════════════════════════════════════════════════════ */
+.frame-area {
+  position: relative;
+  background: #050809;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  height: 280px;
+  flex-shrink: 0;
+}
+.frame-canvas-wrap {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+#frameCanvas {
+  max-width: 100%;
+  max-height: 100%;
+  cursor: crosshair;
+  display: block;
+  image-rendering: pixelated;
+}
+.frame-placeholder {
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.frame-placeholder .big { font-size: 32px; margin-bottom: 8px; }
+
+.canvas-overlay-info {
+  position: absolute;
+  top: 8px; left: 8px;
+  background: rgba(0,0,0,0.7);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted2);
+  padding: 4px 8px;
+  pointer-events: none;
+}
+.canvas-crosshair-info {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  background: rgba(0,0,0,0.7);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  padding: 4px 8px;
+  pointer-events: none;
+}
+
+/* ── crop selection box ─────────────────────────────────── */
+#cropBox {
+  position: absolute;
+  border: 2px dashed var(--amber);
+  pointer-events: none;
+  display: none;
+}
+
+/* ── tabs area ──────────────────────────────────────────── */
+.results-area {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tab-bar {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: none;
+  min-height: 0;
+}
+.tab-content.active { display: flex; flex-direction: column; }
+
+/* Detection tab — zero padding, full height image viewer */
+#tab-detection.active {
+  padding: 0;
+  overflow: hidden;
+}
+#detectionContent {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+#detImgWrap {
+  flex: 1;
+  min-height: 0;
+  background: #050809;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+/* Overview/Results still scroll normally */
+#tab-overview.active,
+#tab-results.active {
+  display: block;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Tab content styles
+════════════════════════════════════════════════════════════ */
+
+/* ── stats cards ────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stat-unit {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted2);
+  margin-top: 2px;
+}
+
+/* ── image results ──────────────────────────────────────── */
+.result-img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  display: block;
+  margin-bottom: 16px;
+}
+
+/* ── pit stats table ────────────────────────────────────── */
+.pit-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-bottom: 20px;
+}
+.pit-stats-table th {
+  background: var(--surf3);
+  color: var(--muted2);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.pit-stats-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.pit-stats-table tr:hover td { background: var(--surf2); }
+.td-accent { color: var(--accent); }
+
+/* ── empty state ────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+/* ── export row ─────────────────────────────────────────── */
+.export-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+/* ── crop controls ──────────────────────────────────────── */
+.crop-mode-bar {
+  display: none;
+  background: rgba(255,176,59,0.1);
+  border: 1px solid var(--amber);
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--amber);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.crop-mode-bar.visible { display: flex; }
+
+/* ── info callout ───────────────────────────────────────── */
+.callout {
+  background: var(--surf2);
+  border-left: 3px solid var(--border2);
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--muted2);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.callout.accent { border-left-color: var(--accent); color: var(--text); }
+
+/* ── scrollbar global ───────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── loading spinner ────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── section collapse toggle ─────────────────────────────── */
+.section.collapsed .section-body { display: none; }
+.section-header { cursor: pointer; user-select: none; }
+.section-header:hover .section-title { color: var(--text); }
+.toggle-icon { margin-left: auto; color: var(--muted); font-size: 12px; transition: transform 0.2s; }
+.section.collapsed .toggle-icon { transform: rotate(-90deg); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ TOP BAR ═══════════════════════════════════════════════════════ -->
+  <header class="topbar">
+    <span class="topbar-logo">● Pit Analyzer</span>
+    <span class="topbar-badge">Corrosion Particles</span>
+    <span class="topbar-spacer"></span>
+    <span class="topbar-dep" id="depStatus">checking dependencies…</span>
+    <button class="btn btn-secondary btn-small" onclick="resetAll()" style="margin-left:8px">↺ Reset</button>
+  </header>
+
+  <!-- ═══ MAIN ══════════════════════════════════════════════════════════ -->
+  <div class="main">
+
+    <!-- ─── SIDEBAR ────────────────────────────────────────────────────── -->
+    <aside class="sidebar">
+
+      <!-- STEP 0 — Raw Dataset -->
+      <div class="section" id="sec0">
+        <div class="section-header" onclick="toggleSection('sec0')">
+          <div class="step-badge active" id="badge0">0</div>
+          <span class="section-title active" id="title0">Raw Dataset</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+          <div class="field">
+            <label>Raw TIFF folder path</label>
+            <div class="input-row">
+              <input type="text" id="rawFolder" placeholder="/path/to/raw_tifs/" style="flex:1">
+            </div>
+            <div class="field-hint">Folder containing your 2240×2252 TIFF frames</div>
+          </div>
+          <div class="field grid-2">
+            <div>
+              <label>px/µm</label>
+              <input type="number" id="pxUm" value="0.5" step="0.01" min="0.01">
+            </div>
+            <div>
+              <label>dt (s/frame)</label>
+              <input type="number" id="dtS" value="10.0" step="0.1" min="0.01">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="loadRawFolder()">LOAD DATASET</button>
+          <div id="rawInfo" class="callout accent" style="margin-top:8px;display:none"></div>
+        </div>
+      </div>
+
+      <!-- STEP 1 — Crop -->
+      <div class="section" id="sec1">
+        <div class="section-header" onclick="toggleSection('sec1')">
+          <div class="step-badge" id="badge1">1</div>
+          <span class="section-title" id="title1">Crop & Slice</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+          <div class="callout">
+            Draw a region on the image preview, or enter coordinates manually.
+          </div>
+
+          <div class="crop-mode-bar" id="cropModeBar">
+            <span class="spinner"></span>
+            <span>Drag on image to select region</span>
+            <button class="btn btn-small btn-danger" onclick="cancelCropDraw()">Cancel</button>
+          </div>
+
+          <div class="field">
+            <button class="btn btn-secondary btn-full" onclick="startCropDraw()">✎ Draw region on image</button>
+          </div>
+
+          <div class="field">
+            <label>Region (pixels): x0, y0 → x1, y1</label>
+            <div class="grid-2" style="gap:6px">
+              <input type="number" id="cropX0" placeholder="x0" value="0">
+              <input type="number" id="cropY0" placeholder="y0" value="0">
+              <input type="number" id="cropX1" placeholder="x1 (blank=full)" value="">
+              <input type="number" id="cropY1" placeholder="y1 (blank=full)" value="">
+            </div>
+          </div>
+          <div class="field">
+            <label>Frame range: f0 → f1</label>
+            <div class="grid-2" style="gap:6px">
+              <input type="number" id="cropF0" placeholder="f0" value="0">
+              <input type="number" id="cropF1" placeholder="f1 (blank=all)" value="">
+            </div>
+          </div>
+          <div class="field">
+            <label>Output folder name</label>
+            <input type="text" id="cropName" value="cropped" style="width:100%">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doCrop()" id="btnCrop" disabled>CROP & SAVE</button>
+          <div class="progress-wrap" id="prog1">
+            <div class="progress-track"><div class="progress-fill" id="pf1" style="width:0%"></div></div>
+            <div class="progress-label" id="pl1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 — Preprocessing -->
+      <div class="section" id="sec2">
+        <div class="section-header" onclick="toggleSection('sec2')">
+          <div class="step-badge" id="badge2">2</div>
+          <span class="section-title" id="title2">Preprocess (Morphological)</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+          <div class="field grid-2">
+            <div><label>Gaussian σ</label><input type="number" id="ppGaussian" value="10" min="1"></div>
+            <div><label>Motion gap</label><input type="number" id="ppGap" value="1" min="1"></div>
+          </div>
+          <div class="field grid-2">
+            <div><label>Kernel size</label><input type="number" id="ppKernel" value="3" min="1"></div>
+            <div><label>Median size</label><input type="number" id="ppMedian" value="3" min="1"></div>
+          </div>
+          <div class="field grid-2">
+            <div><label>Bright thresh</label><input type="number" id="ppBright" value="1.05" step="0.01"></div>
+            <div><label>Threshold</label><input type="number" id="ppThresh" value="1.0" step="0.01"></div>
+          </div>
+          <div class="field grid-2">
+            <div><label>Pct low</label><input type="number" id="ppPctLow" value="1" min="0" max="50"></div>
+            <div><label>Pct high</label><input type="number" id="ppPctHigh" value="99" min="50" max="100"></div>
+          </div>
+          <div class="field">
+            <label>Output folder name</label>
+            <input type="text" id="ppName" value="preprocessed" style="width:100%">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doPreprocess()" id="btnPrep" disabled>RUN PREPROCESSING</button>
+          <div class="progress-wrap" id="prog2">
+            <div class="progress-track"><div class="progress-fill" id="pf2" style="width:0%"></div></div>
+            <div class="progress-label" id="pl2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 — Detection (StarDist / Classic) -->
+      <div class="section" id="sec3">
+        <div class="section-header" onclick="toggleSection('sec3')">
+          <div class="step-badge" id="badge3">3</div>
+          <span class="section-title" id="title3">Particle Detection</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+
+          <!-- detector mode switch -->
+          <div style="display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border2);overflow:hidden">
+            <button id="modeStardist" class="det-mode-btn active" onclick="setDetectorMode('stardist')"
+              style="flex:1;padding:7px 0;font-family:var(--mono);font-size:10px;font-weight:700;
+                     letter-spacing:.06em;background:var(--accent);color:#000;border:none;cursor:pointer">
+              ★ STARDIST
+            </button>
+            <button id="modeClassic" class="det-mode-btn" onclick="setDetectorMode('classic')"
+              style="flex:1;padding:7px 0;font-family:var(--mono);font-size:10px;font-weight:700;
+                     letter-spacing:.06em;background:var(--surf3);color:var(--muted2);border:none;cursor:pointer">
+              CLASSIC
+            </button>
+          </div>
+
+          <!-- ── StarDist panel ── -->
+          <div id="panelStardist">
+            <div class="callout accent" style="margin-bottom:10px">
+              Load your trained model, then run instance segmentation.
+            </div>
+
+            <!-- Model not loaded indicator -->
+            <div id="modelNotLoaded" class="callout" style="border-color:var(--amber);color:var(--amber);margin-bottom:8px">
+              ⚠ No model loaded
+            </div>
+            <div id="modelLoaded" class="callout accent" style="display:none;margin-bottom:8px">
+              ✓ Model: <span id="modelLoadedName"></span>
+            </div>
+
+            <div class="field">
+              <label>Model basedir (folder containing model subfolder)</label>
+              <input type="text" id="sdModelDir"
+                placeholder="C:\...\models" style="width:100%">
+            </div>
+            <div class="field">
+              <label>Model name</label>
+              <input type="text" id="sdModelName"
+                value="stardist_corrosion_particles" style="width:100%">
+            </div>
+            <button class="btn btn-secondary btn-full" onclick="loadStardistModel()" id="btnLoadModel">
+              LOAD MODEL
+            </button>
+
+            <div style="margin:10px 0 6px;border-top:1px solid var(--border)"></div>
+
+            <div class="field grid-2">
+              <div>
+                <label>Prob thresh</label>
+                <input type="number" id="sdProb" value="0.4" step="0.05" min="0" max="1">
+              </div>
+              <div>
+                <label>NMS thresh</label>
+                <input type="number" id="sdNms" value="0.3" step="0.05" min="0" max="1">
+              </div>
+            </div>
+            <div class="field grid-2">
+              <div>
+                <label>Norm pct lo</label>
+                <input type="number" id="sdNormLo" value="1.0" step="0.5" min="0" max="10">
+              </div>
+              <div>
+                <label>Norm pct hi</label>
+                <input type="number" id="sdNormHi" value="99.8" step="0.1" min="90" max="100">
+              </div>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="doDetectStardist()"
+              id="btnDetectSD" disabled>RUN STARDIST SEGMENTATION</button>
+            <div class="progress-wrap" id="prog3sd">
+              <div class="progress-track"><div class="progress-fill" id="pf3sd" style="width:0%"></div></div>
+              <div class="progress-label" id="pl3sd"></div>
+            </div>
+          </div>
+
+          <!-- ── Classic detector panel ── -->
+          <div id="panelClassic" style="display:none">
+            <div class="callout">
+              Threshold + connected-components blob detection on preprocessed frames.
+            </div>
+            <div class="field grid-3">
+              <div><label>Method</label>
+                <select id="detMethod" style="background:var(--surf2);color:var(--text);
+                  border:1px solid var(--border);font-family:var(--mono);font-size:10px;
+                  padding:5px 6px;width:100%">
+                  <option value="otsu">Otsu</option>
+                  <option value="sigma">Sigma</option>
+                  <option value="fixed">Fixed</option>
+                </select>
+              </div>
+              <div><label>Threshold</label><input type="number" id="detThresh" value="0.7" step="0.05" min="0" max="5"></div>
+              <div><label>Circularity</label><input type="number" id="detCirc" value="0.3" step="0.05" min="0" max="1"></div>
+            </div>
+            <div class="field grid-2">
+              <div><label>Min area</label><input type="number" id="detMinA" value="3" min="1"></div>
+              <div><label>Max area</label><input type="number" id="detMaxA" value="500" min="1"></div>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="doDetect()" id="btnDetect" disabled>
+              RUN CLASSIC DETECTION
+            </button>
+            <div style="margin: 8px 0; text-align:center; font-family:var(--mono);font-size:10px;color:var(--muted)">— or load pkl —</div>
+            <div class="field">
+              <label>Load detections.pkl</label>
+              <div class="input-row">
+                <input type="text" id="detPkl" placeholder="/path/to/detections.pkl" style="flex:1">
+                <button class="btn btn-secondary btn-small" onclick="loadDetectionsPkl()">Load</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="progress-wrap" id="prog3">
+            <div class="progress-track"><div class="progress-fill" id="pf3" style="width:0%"></div></div>
+            <div class="progress-label" id="pl3"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- STEP 4 — Tracking -->
+      <div class="section" id="sec4">
+        <div class="section-header" onclick="toggleSection('sec4')">
+          <div class="step-badge" id="badge4">4</div>
+          <span class="section-title" id="title4">Tracking</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+          <div class="field grid-3">
+            <div><label>Max dist (px)</label><input type="number" id="trMaxDist" value="25" min="1"></div>
+            <div><label>Max missed</label><input type="number" id="trMaxMiss" value="4" min="0"></div>
+            <div><label>Min length</label><input type="number" id="trMinLen" value="2" min="1"></div>
+          </div>
+          <div class="field" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <label style="margin:0;display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="trHungarian" checked
+                style="accent-color:var(--accent);width:14px;height:14px">
+              <span style="font-family:var(--mono);font-size:10px;color:var(--text)">
+                Use Hungarian algorithm
+              </span>
+            </label>
+            <span id="hungarianBadge" style="font-family:var(--mono);font-size:9px;
+              background:var(--accent);color:#000;padding:1px 6px">OPTIMAL</span>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doTrack()" id="btnTrack" disabled>RUN TRACKING</button>
+          <div class="progress-wrap" id="prog4">
+            <div class="progress-track"><div class="progress-fill" id="pf4" style="width:0%"></div></div>
+            <div class="progress-label" id="pl4"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 5 — Pit location -->
+      <div class="section" id="sec5">
+        <div class="section-header" onclick="toggleSection('sec5')">
+          <div class="step-badge" id="badge5">5</div>
+          <span class="section-title" id="title5">Pit Location</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+          <div class="callout">
+            Click on the image preview to place pit markers.
+          </div>
+          <div id="pitList"></div>
+          <button class="btn btn-danger btn-full btn-small" style="margin-top:6px" onclick="clearPits()">CLEAR ALL PITS</button>
+        </div>
+      </div>
+
+      <!-- STEP 6 — Analysis -->
+      <div class="section" id="sec6">
+        <div class="section-header" onclick="toggleSection('sec6')">
+          <div class="step-badge" id="badge6">6</div>
+          <span class="section-title" id="title6">Analysis</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body">
+          <div class="field">
+            <label>Max assign radius (µm)</label>
+            <input type="number" id="maxAssign" value="300" min="10" style="width:100%">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doAnalyse()" id="btnAnalyse" disabled>RUN ANALYSIS</button>
+          <div class="progress-wrap" id="prog6">
+            <div class="progress-track"><div class="progress-fill" id="pf6" style="width:0%"></div></div>
+            <div class="progress-label" id="pl6"></div>
+          </div>
+        </div>
+      </div>
+
+    </aside><!-- /sidebar -->
+
+    <!-- ─── RIGHT PANEL ─────────────────────────────────────────────────── -->
+    <div class="right">
+
+      <!-- Frame preview (raw + crop draw + pit placement) -->
+      <div class="frame-area" id="frameArea">
+        <div class="frame-canvas-wrap" id="canvasWrap">
+          <div class="frame-placeholder" id="framePlaceholder">
+            <div class="big">⬡</div>
+            Load a dataset to see the frame preview
+          </div>
+          <canvas id="frameCanvas" style="display:none"></canvas>
+        </div>
+        <div class="canvas-overlay-info" id="canvasInfo" style="display:none"></div>
+        <div class="canvas-crosshair-info" id="crosshairInfo" style="display:none"></div>
+        <div id="cropBox"></div>
+      </div>
+
+      <!-- Results tabs -->
+      <div class="results-area">
+        <div class="tab-bar" id="tabBar">
+          <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+          <button class="tab-btn" data-tab="detection" onclick="switchTab('detection')" id="tabBtnDetection">Detection</button>
+          <button class="tab-btn" data-tab="results" onclick="switchTab('results')">Results</button>
+        </div>
+
+        <!-- ── Overview tab ─────────────────────────────────────────────── -->
+        <div class="tab-content active" id="tab-overview">
+          <div class="empty-state" id="overviewEmpty">
+            <div class="icon">◎</div>
+            Complete the pipeline steps on the left to see analysis results here.
+          </div>
+          <div id="overviewStats" style="display:none">
+            <div class="stats-grid" id="statsCards"></div>
+            <div id="overviewOverlay"></div>
+          </div>
+        </div>
+
+        <!-- ── Detection Preview tab ────────────────────────────────────── -->
+        <div class="tab-content" id="tab-detection">
+          <div class="empty-state" id="detectionEmpty">
+            <div class="icon">★</div>
+            Run StarDist segmentation (Step 3) to preview detections here.
+          </div>
+          <div id="detectionContent" style="display:none;height:100%;display:none;flex-direction:column">
+            <!-- Image viewer -->
+            <div id="detImgWrap" style="flex:1;background:#050809;display:flex;
+                 align-items:center;justify-content:center;overflow:hidden;position:relative;min-height:0">
+              <img id="detImg" style="max-width:100%;max-height:100%;display:block;
+                   image-rendering:pixelated" src="" alt="">
+              <!-- Badge top-right -->
+              <div id="detBadge" style="position:absolute;top:8px;right:8px;
+                   font-family:var(--mono);font-size:10px;font-weight:700;
+                   background:var(--accent);color:#000;padding:3px 10px;
+                   letter-spacing:.08em;pointer-events:none">★ STARDIST</div>
+              <!-- Frame info bottom-left -->
+              <div id="detInfo" style="position:absolute;bottom:50px;left:8px;
+                   background:rgba(0,0,0,0.7);font-family:var(--mono);font-size:9px;
+                   color:var(--muted2);padding:3px 8px;pointer-events:none">—</div>
+            </div>
+            <!-- Slider bar -->
+            <div style="background:#0a0f12;border-top:1px solid var(--border);
+                 padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <button class="btn btn-secondary btn-small" onclick="detStep(-10)">«</button>
+              <button class="btn btn-secondary btn-small" onclick="detStep(-1)">◀</button>
+              <input type="range" id="detSlider" min="0" max="0" value="0"
+                style="flex:1;accent-color:var(--accent);height:4px"
+                oninput="detGoto(+this.value)">
+              <button class="btn btn-secondary btn-small" onclick="detStep(1)">▶</button>
+              <button class="btn btn-secondary btn-small" onclick="detStep(10)">»</button>
+              <span id="detSliderLabel" style="font-family:var(--mono);font-size:9px;
+                color:var(--muted2);white-space:nowrap;min-width:90px;text-align:right">—/—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Results tab ───────────────────────────────────────────────── -->
+        <div class="tab-content" id="tab-results">
+          <div class="empty-state" id="resultsEmpty">
+            <div class="icon">📊</div>
+            Run analysis (Step 6) to see per-pit graphs here.
+          </div>
+          <div id="resultsContent" style="display:none">
+            <div id="pitPlotsArea"></div>
+
+            <!-- Export panel -->
+            <div style="margin-top:20px;padding:16px;background:var(--surf2);
+                 border:1px solid var(--border2)">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--accent);
+                   letter-spacing:.1em;margin-bottom:12px">EXPORT RESULTS</div>
+              <div class="field">
+                <label>Output folder name</label>
+                <div class="input-row">
+                  <input type="text" id="exportFolderName" placeholder="my_experiment_01"
+                    value="experiment_01" style="flex:1">
+                  <button class="btn btn-primary" onclick="doExportResults()" id="btnExport">
+                    ↓ SAVE ALL
+                  </button>
+                </div>
+                <div class="field-hint">
+                  Saves to <code>outputs/&lt;name&gt;/</code>:
+                  detections/ (all frames) · trajectories/ (per-frame + overlay) · analysis/ (pit figures) · CSV
+                </div>
+              </div>
+              <div id="exportStatus" style="display:none;margin-top:8px;font-family:var(--mono);
+                   font-size:10px;color:var(--accent)"></div>
+              <div class="export-row" style="margin-top:12px">
+                <a class="btn btn-secondary btn-small" href="/api/export_csv" download>↓ CSV only</a>
+                <a class="btn btn-secondary btn-small" href="/api/export_detections_pkl" download>↓ detections.pkl</a>
+                <a class="btn btn-secondary btn-small" href="/api/export_seg_masks" download>↓ masks.zip</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /results-area -->
+    </div><!-- /right -->
+  </div><!-- /main -->
+
+  <!-- STATUS BAR -->
+  <div class="statusbar">
+    <span class="status-msg" id="statusMsg">Ready — load a raw dataset folder to begin.</span>
+    <span id="progressPct" style="font-family:var(--mono);font-size:10px;color:var(--muted)"></span>
+  </div>
+</div><!-- /app -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   State & Helpers
+════════════════════════════════════════════════════════════ */
+let pitList = [];
+let pitCounter = 0;
+let frameImg = null;      // HTMLImageElement of current frame
+let frameScale = 1;       // canvas px / image px
+let frameOffX = 0;        // canvas offset (centering)
+let frameOffY = 0;
+let cropMode = false;
+let cropStart = null;
+let cropRect  = null;     // {x0,y0,x1,y1} in image coords
+let placePitMode = false; // true when tracking is done
+
+const canvas  = document.getElementById("frameCanvas");
+const ctx     = canvas.getContext("2d");
+
+function setStatus(msg, cls="") {
+  const el = document.getElementById("statusMsg");
+  el.textContent = msg;
+  el.className = "status-msg " + cls;
+}
+
+function setProgress(id, pct, msg) {
+  const wrap = document.getElementById("prog"+id);
+  if (!wrap) return;
+  wrap.classList.toggle("visible", pct > 0 && pct < 100);
+  const fill = document.getElementById("pf"+id);
+  const lbl  = document.getElementById("pl"+id);
+  if (fill) fill.style.width = pct+"%";
+  if (lbl)  lbl.textContent  = msg;
+}
+
+function activateStep(n) {
+  for (let i=0; i<=6; i++) {
+    const badge = document.getElementById("badge"+i);
+    const title = document.getElementById("title"+i);
+    if (badge) {
+      badge.classList.toggle("active", i<=n);
+      if (title) title.classList.toggle("active", i<=n);
+    }
+  }
+}
+
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle("collapsed");
+}
+
+function switchTab(name) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab===name));
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id==="tab-"+name));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Dependencies check
+════════════════════════════════════════════════════════════ */
+async function checkDeps() {
+  const r = await fetch("/api/status").then(r=>r.json());
+  const el = document.getElementById("depStatus");
+  const core = ["scipy","tifffile","cv2","skimage"];
+  let html = core.map(k =>
+    `<span class="${r[k]?"dep-ok":"dep-miss"}">${k}:${r[k]?"✓":"✗"}</span>`
+  ).join(" ");
+  // StarDist special
+  if (r.stardist) {
+    if (r.stardist_model_loaded) {
+      html += ` <span class="dep-ok">★ ${r.stardist_model_name||"model"}:✓</span>`;
+      document.getElementById("modelNotLoaded").style.display = "none";
+      document.getElementById("modelLoaded").style.display = "block";
+      document.getElementById("modelLoadedName").textContent = r.stardist_model_name;
+      document.getElementById("btnDetectSD").disabled = false;
+    } else {
+      html += ` <span class="dep-ok">stardist:✓</span>`;
+    }
+  } else {
+    html += ` <span class="dep-miss">stardist:✗</span>`;
+  }
+  if (!r.hungarian) {
+    document.getElementById("hungarianBadge").textContent = "UNAVAILABLE";
+    document.getElementById("hungarianBadge").style.background = "var(--red)";
+    document.getElementById("hungarianBadge").style.color = "#fff";
+    document.getElementById("trHungarian").disabled = true;
+  }
+  el.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Detector mode switcher
+════════════════════════════════════════════════════════════ */
+let detectorMode = 'stardist';  // 'stardist' | 'classic'
+
+function setDetectorMode(mode) {
+  detectorMode = mode;
+  document.getElementById('panelStardist').style.display = mode==='stardist' ? 'block' : 'none';
+  document.getElementById('panelClassic').style.display  = mode==='classic'  ? 'block' : 'none';
+  const btnSD  = document.getElementById('modeStardist');
+  const btnCls = document.getElementById('modeClassic');
+  btnSD.style.background  = mode==='stardist' ? 'var(--accent)' : 'var(--surf3)';
+  btnSD.style.color       = mode==='stardist' ? '#000' : 'var(--muted2)';
+  btnCls.style.background = mode==='classic'  ? 'var(--accent)' : 'var(--surf3)';
+  btnCls.style.color      = mode==='classic'  ? '#000' : 'var(--muted2)';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   StarDist — load model
+════════════════════════════════════════════════════════════ */
+async function loadStardistModel() {
+  const basedir = document.getElementById("sdModelDir").value.trim();
+  const name    = document.getElementById("sdModelName").value.trim();
+  if (!basedir || !name) { setStatus("Enter model basedir and name", "err"); return; }
+  setStatus("Loading StarDist model…", "inf");
+  document.getElementById("btnLoadModel").disabled = true;
+  const r = await fetch("/api/load_stardist_model", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({model_basedir: basedir, model_name: name})
+  }).then(r=>r.json());
+  document.getElementById("btnLoadModel").disabled = false;
+  if (r.error) { setStatus(r.error, "err"); return; }
+  document.getElementById("modelNotLoaded").style.display = "none";
+  document.getElementById("modelLoaded").style.display = "block";
+  document.getElementById("modelLoadedName").textContent =
+    `${name}  (${r.n_rays} rays, patch ${r.patch_size.join("×")})`;
+  document.getElementById("btnDetectSD").disabled = false;
+  setStatus(`StarDist model '${name}' loaded successfully`, "ok");
+  await checkDeps();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   StarDist — run detection
+════════════════════════════════════════════════════════════ */
+async function doDetectStardist() {
+  setStatus("Running StarDist instance segmentation…", "inf");
+  document.getElementById("btnDetectSD").disabled = true;
+  const body = {
+    prob_thresh: +document.getElementById("sdProb").value,
+    nms_thresh:  +document.getElementById("sdNms").value,
+    norm_pct_lo: +document.getElementById("sdNormLo").value,
+    norm_pct_hi: +document.getElementById("sdNormHi").value,
+  };
+  const r = await fetch("/api/detect_stardist", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  }).then(res=>res.json());
+  if (r.error) {
+    setStatus("❌ " + r.error, "err");
+    document.getElementById("btnDetectSD").disabled = false;
+    return;
+  }
+  setStatus(`★ StarDist running on ${r.n_prep_files} preprocessed frames…`, "inf");
+  startPoll("3sd", "detect_stardist", async msg => {
+    document.getElementById("btnDetectSD").disabled = false;
+    document.getElementById("btnTrack").disabled = false;
+    activateStep(4);
+    setStatus("★ StarDist done — " + msg, "ok");
+    await updateStatsCards();
+    await initDetPreview();   // opens the Detection tab with the segmentation viewer
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Detection Tab — frame viewer (StarDist renders, NO tracks)
+════════════════════════════════════════════════════════════ */
+let _detN = 0, _detCur = 0, _detLoading = false;
+
+async function initDetPreview() {
+  // Fetch frame 0 with show_tracks=0 (pure segmentation, no trajectories)
+  const r = await fetch("/api/get_segmentation_frame?frame=0&show_tracks=0").then(r=>r.json());
+  if (r.error) return;
+  _detN = r.n_frames; _detCur = 0;
+  const sl = document.getElementById("detSlider");
+  sl.max = Math.max(0, r.n_frames - 1);
+  sl.value = 0;
+  // Show the detection tab content
+  document.getElementById("detectionEmpty").style.display = "none";
+  document.getElementById("detectionContent").style.display = "flex";
+  _renderDet(r);
+  // Switch to detection tab automatically
+  switchTab("detection");
+}
+
+async function detGoto(idx) {
+  if (_detLoading) return;
+  _detCur = parseInt(idx);
+  document.getElementById("detSlider").value = _detCur;
+  _detLoading = true;
+  const r = await fetch(`/api/get_segmentation_frame?frame=${_detCur}&show_tracks=0`).then(r=>r.json());
+  _detLoading = false;
+  if (!r.error) _renderDet(r);
+}
+
+function detStep(delta) {
+  const nf = _detN || 1;
+  detGoto(((_detCur + delta) % nf + nf) % nf);
+}
+
+function _renderDet(r) {
+  document.getElementById("detImg").src = "data:image/png;base64," + r.image;
+  document.getElementById("detInfo").textContent =
+    `${r.n_detections} particles  |  frame ${r.frame+1}/${r.n_frames}`;
+  document.getElementById("detSliderLabel").textContent = `${r.frame+1} / ${r.n_frames}`;
+  document.getElementById("detBadge").textContent = r.has_stardist ? "★ StarDist" : "○ Classic";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Export results to named folder
+════════════════════════════════════════════════════════════ */
+async function doExportResults() {
+  const name = document.getElementById("exportFolderName").value.trim() || "experiment_01";
+  document.getElementById("btnExport").disabled = true;
+  document.getElementById("exportStatus").style.display = "none";
+  setStatus(`Exporting to outputs/${name}/…`, "inf");
+
+  const r = await fetch("/api/export_results", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({folder_name: name})
+  }).then(res => res.json());
+
+  document.getElementById("btnExport").disabled = false;
+
+  if (r.error) {
+    setStatus("❌ Export failed: " + r.error, "err");
+    return;
+  }
+
+  const msg = `✓ Saved ${r.n_saved} files → outputs/${name}/`;
+  setStatus(msg, "ok");
+  const el = document.getElementById("exportStatus");
+  el.style.display = "block";
+  el.innerHTML = `${msg}<br>
+    <span style="color:var(--muted2)">
+      detections/ · trajectories/ · analysis/ · pit_analysis.csv
+    </span>`;
+}
+function showFrame(b64) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      frameImg = img;
+      const area = document.getElementById("frameArea");
+      const aw = area.clientWidth, ah = area.clientHeight;
+      const scale = Math.min(aw / img.width, ah / img.height, 1);
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      frameScale = scale;
+      frameOffX  = Math.round((aw - canvas.width)  / 2);
+      frameOffY  = Math.round((ah - canvas.height) / 2);
+      canvas.style.position = "absolute";
+      canvas.style.left = frameOffX+"px";
+      canvas.style.top  = frameOffY+"px";
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      drawPitsOnCanvas();
+      document.getElementById("framePlaceholder").style.display = "none";
+      canvas.style.display = "block";
+      document.getElementById("canvasInfo").style.display = "block";
+      document.getElementById("crosshairInfo").style.display = "block";
+      resolve();
+    };
+    img.src = "data:image/png;base64," + b64;
+  });
+}
+
+function drawPitsOnCanvas() {
+  if (!frameImg) return;
+  // Redraw base image
+  ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+  // Draw crop rect
+  if (cropRect) {
+    const {x0,y0,x1,y1} = cropRect;
+    ctx.strokeStyle = "#ffb03b";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.strokeRect(x0*frameScale, y0*frameScale, (x1-x0)*frameScale, (y1-y0)*frameScale);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,176,59,0.08)";
+    ctx.fillRect(x0*frameScale, y0*frameScale, (x1-x0)*frameScale, (y1-y0)*frameScale);
+  }
+  // Draw pits
+  pitList.forEach(p => {
+    const cx = p.col_px * frameScale;
+    const cy = p.row_px * frameScale;
+    const r  = (p.radius_px || 15) * frameScale;
+    ctx.strokeStyle = "#ff3b3b";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = "#ff3b3b"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx-r*0.4, cy); ctx.lineTo(cx+r*0.4, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy-r*0.4); ctx.lineTo(cx, cy+r*0.4); ctx.stroke();
+    ctx.fillStyle = "#ff3b3b";
+    ctx.font = `bold ${Math.max(10, r*0.6)}px Space Mono`;
+    ctx.fillText(p.id, cx + r + 3, cy - 3);
+  });
+}
+
+// Mouse events on canvas
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect();
+  // Position within the canvas element (CSS px), then convert to image px
+  const canvasX = e.clientX - rect.left;
+  const canvasY = e.clientY - rect.top;
+  const mx = canvasX / frameScale;
+  const my = canvasY / frameScale;
+  document.getElementById("crosshairInfo").textContent = `x:${Math.round(mx)}  y:${Math.round(my)} px`;
+
+  if (cropMode && cropStart) {
+    const x0 = Math.min(cropStart.x, mx), y0 = Math.min(cropStart.y, my);
+    const x1 = Math.max(cropStart.x, mx), y1 = Math.max(cropStart.y, my);
+    cropRect = {x0, y0, x1, y1};
+    fillCropInputs(x0, y0, x1, y1);
+    drawPitsOnCanvas();
+  }
+});
+
+canvas.addEventListener("mousedown", e => {
+  if (!frameImg) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / frameScale;
+  const my = (e.clientY - rect.top)  / frameScale;
+
+  if (cropMode) {
+    cropStart = {x: mx, y: my};
+    cropRect = null;
+    return;
+  }
+
+  // Place pit mode (after tracking done)
+  if (placePitMode) {
+    pitCounter++;
+    const pid = `Pit_${pitCounter}`;
+    pitList.push({id: pid, col_px: mx, row_px: my, radius_px: 15});
+    refreshPitList();
+    drawPitsOnCanvas();
+    if (pitList.length > 0) document.getElementById("btnAnalyse").disabled = false;
+  }
+});
+
+canvas.addEventListener("mouseup", e => {
+  if (cropMode && cropStart) {
+    cropStart = null;
+    document.getElementById("btnCrop").disabled = false;
+    document.getElementById("cropModeBar").classList.remove("visible");
+    cancelCropDraw();
+  }
+});
+
+function fillCropInputs(x0,y0,x1,y1) {
+  document.getElementById("cropX0").value = Math.round(x0);
+  document.getElementById("cropY0").value = Math.round(y0);
+  document.getElementById("cropX1").value = Math.round(x1);
+  document.getElementById("cropY1").value = Math.round(y1);
+}
+
+function startCropDraw() {
+  cropMode = true;
+  canvas.style.cursor = "crosshair";
+  document.getElementById("cropModeBar").classList.add("visible");
+}
+function cancelCropDraw() {
+  cropMode = false;
+  canvas.style.cursor = placePitMode ? "crosshair" : "default";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Pit list UI
+════════════════════════════════════════════════════════════ */
+function refreshPitList() {
+  const el = document.getElementById("pitList");
+  el.innerHTML = pitList.map((p,i) => `
+    <div class="pit-item">
+      <span class="pit-id">${p.id}</span>
+      <span class="pit-coords">(${Math.round(p.col_px)}, ${Math.round(p.row_px)}) px</span>
+      <button class="pit-del" onclick="removePit(${i})">✕</button>
+    </div>
+  `).join("");
+}
+
+function removePit(i) {
+  pitList.splice(i, 1);
+  refreshPitList();
+  drawPitsOnCanvas();
+  if (pitList.length === 0) document.getElementById("btnAnalyse").disabled = true;
+}
+
+function clearPits() {
+  pitList = []; pitCounter = 0;
+  refreshPitList();
+  drawPitsOnCanvas();
+  document.getElementById("btnAnalyse").disabled = true;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Progress polling
+════════════════════════════════════════════════════════════ */
+let pollTimer = null;
+
+/**
+ * Poll /api/progress until the response stage starts with expectedStage
+ * AND pct===100 (or ends with _error).
+ *
+ * This prevents the poll from firing immediately on a stale pct=100
+ * left over from a previous step (e.g. model loading, crop, etc.)
+ *
+ * @param {string}   stepId        — progress bar element suffix (e.g. "2")
+ * @param {string}   expectedStage — must match r.stage (e.g. "preprocess")
+ * @param {Function} onDone        — callback(msg) on success
+ */
+function startPoll(stepId, expectedStage, onDone) {
+  if (pollTimer) clearInterval(pollTimer);
+
+  // Track consecutive "wrong-stage" readings — after a short settle
+  // period we accept any stage to avoid getting stuck
+  let ticks = 0;
+
+  pollTimer = setInterval(async () => {
+    let r;
+    try { r = await fetch("/api/progress").then(res => res.json()); }
+    catch(e) { return; }   // network hiccup — retry next tick
+
+    ticks++;
+
+    const stageMatch = r.stage === expectedStage
+                    || r.stage === expectedStage + "_error";
+    const isError    = r.stage.endsWith("_error");
+    const isDone     = r.pct === 100;
+
+    // Only update the progress bar when the stage matches
+    if (stageMatch) {
+      setProgress(stepId, r.pct, r.msg);
+      document.getElementById("progressPct").textContent = r.pct < 100 ? r.pct+"%" : "";
+    } else if (ticks <= 3) {
+      // First 1.5 s: wait for the backend thread to start and set the right stage
+      return;
+    }
+
+    // Terminate on done or error (when stage matches, or after we've waited long enough)
+    if ((stageMatch && (isDone || isError)) ||
+        (!stageMatch && ticks > 3 && isDone)) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      if (isError) {
+        setStatus("❌ Error: " + r.msg, "err");
+        setProgress(stepId, 0, "");
+      } else {
+        setProgress(stepId, 0, "");
+        document.getElementById("progressPct").textContent = "";
+        onDone(r.msg);
+      }
+    }
+  }, 500);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP 0 — Load raw folder
+════════════════════════════════════════════════════════════ */
+async function loadRawFolder() {
+  const folder = document.getElementById("rawFolder").value.trim();
+  if (!folder) { setStatus("Enter a folder path first", "err"); return; }
+  setStatus("Loading dataset…", "inf");
+  const r = await fetch("/api/set_raw_folder", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({folder})
+  }).then(r=>r.json());
+  if (r.error) { setStatus(r.error, "err"); return; }
+  await showFrame(r.preview);
+  document.getElementById("canvasInfo").textContent = `${r.n_frames} frames  |  ${r.shape[1]}×${r.shape[0]} px`;
+  document.getElementById("rawInfo").textContent = `✓ ${r.n_frames} frames  |  ${r.shape[1]}×${r.shape[0]} px`;
+  document.getElementById("rawInfo").style.display = "block";
+  document.getElementById("btnCrop").disabled = false;
+  document.getElementById("btnPrep").disabled = false;
+  document.getElementById("btnDetect").disabled = false;
+  activateStep(1);
+  setStatus(`Loaded ${r.n_frames} frames from ${folder}`, "ok");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP 1 — Crop
+════════════════════════════════════════════════════════════ */
+async function doCrop() {
+  setStatus("Cropping frames…", "inf");
+  document.getElementById("btnCrop").disabled = true;
+
+  // Read values — use parseInt, default 0 only when truly empty
+  const getInt = id => { const v = document.getElementById(id).value; return v === "" ? 0 : parseInt(v, 10); };
+  const x0 = getInt("cropX0"), y0 = getInt("cropY0");
+  const x1 = getInt("cropX1"), y1 = getInt("cropY1");  // 0 = full extent
+  const f0 = getInt("cropF0"), f1 = getInt("cropF1");
+
+  // Sanity: if x0 > x1 (both non-zero), user drew right→left or typed wrong — swap
+  const cx0 = (x1 > 0 && x0 > x1) ? x1 : x0;
+  const cx1 = (x1 > 0 && x0 > x1) ? x0 : x1;
+  const cy0 = (y1 > 0 && y0 > y1) ? y1 : y0;
+  const cy1 = (y1 > 0 && y0 > y1) ? y0 : y1;
+
+  const body = {
+    x0: cx0, y0: cy0, x1: cx1, y1: cy1,
+    f0, f1,
+    out_name: document.getElementById("cropName").value || "cropped",
+  };
+  const r = await fetch("/api/crop_and_save", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r=>r.json());
+  if (r.error) { setStatus("❌ " + r.error, "err"); document.getElementById("btnCrop").disabled = false; return; }
+  setStatus(`Cropping ${r.n_frames} frames [x:${cx0}→${cx1||"end"}, y:${cy0}→${cy1||"end"}]…`, "inf");
+  startPoll(1, "crop", async msg => {
+    document.getElementById("btnCrop").disabled = false;
+    activateStep(2);
+    setStatus("✓ Crop done — "+msg, "ok");
+    const res = await fetch("/api/get_frame_preview").then(r=>r.json());
+    if (res.image) { await showFrame(res.image); updateStatsCards(res.stats); }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP 2 — Preprocess
+════════════════════════════════════════════════════════════ */
+async function doPreprocess() {
+  setStatus("Running morphological preprocessing…", "inf");
+  document.getElementById("btnPrep").disabled = true;
+  const body = {
+    gaussian_sigma: +document.getElementById("ppGaussian").value,
+    motion_gap:     +document.getElementById("ppGap").value,
+    threshold_value: +document.getElementById("ppThresh").value,
+    morph_kernel_size: +document.getElementById("ppKernel").value,
+    median_kernel_size: +document.getElementById("ppMedian").value,
+    bright_spot_threshold: +document.getElementById("ppBright").value,
+    pct_low:  +document.getElementById("ppPctLow").value,
+    pct_high: +document.getElementById("ppPctHigh").value,
+    out_name: document.getElementById("ppName").value||"preprocessed",
+  };
+  const r = await fetch("/api/preprocess",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+  if (r.error) {
+    setStatus("❌ " + r.error, "err");
+    document.getElementById("btnPrep").disabled = false;
+    return;
+  }
+  setStatus(`Preprocessing ${r.n_src_files} cropped frames…`, "inf");
+  startPoll(2, "preprocess", async msg => {
+    document.getElementById("btnPrep").disabled = false;
+    document.getElementById("btnDetect").disabled = false;
+    // Enable StarDist detect button if model is already loaded
+    if (document.getElementById("modelLoaded").style.display !== "none") {
+      document.getElementById("btnDetectSD").disabled = false;
+    }
+    activateStep(3);
+    setStatus("✓ Preprocessing done — "+msg, "ok");
+    const res = await fetch("/api/get_frame_preview").then(r=>r.json());
+    if (res.image) { await showFrame(res.image); await updateStatsCards(res.stats); }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP 3 — Classic Detect
+════════════════════════════════════════════════════════════ */
+async function doDetect() {
+  setStatus("Running classic particle detection…", "inf");
+  document.getElementById("btnDetect").disabled = true;
+  const body = {
+    threshold:          +document.getElementById("detThresh").value,
+    min_area:           +document.getElementById("detMinA").value,
+    max_area:           +document.getElementById("detMaxA").value,
+    threshold_method:   document.getElementById("detMethod").value,
+    min_circularity:    +document.getElementById("detCirc").value,
+  };
+  await fetch("/api/detect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  startPoll(3, "detect", async msg => {
+    document.getElementById("btnDetect").disabled = false;
+    document.getElementById("btnTrack").disabled = false;
+    activateStep(4);
+    setStatus("✓ Detection done — "+msg, "ok");
+    await updateStatsCards();
+    initDetPreview();
+  });
+}
+
+async function loadDetectionsPkl() {
+  const path = document.getElementById("detPkl").value.trim();
+  if (!path) return;
+  const r = await fetch("/api/load_detections",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path})}).then(r=>r.json());
+  if (r.error) { setStatus(r.error,"err"); return; }
+  document.getElementById("btnTrack").disabled = false;
+  activateStep(4);
+  setStatus(`Loaded detections.pkl — ${r.n_detections} detections in ${r.n_frames} frames`, "ok");
+  updateStatsCards();
+  initDetPreview();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP 4 — Track (Hungarian or Greedy)
+════════════════════════════════════════════════════════════ */
+async function doTrack() {
+  setStatus("Running tracking…", "inf");
+  document.getElementById("btnTrack").disabled = true;
+  const useHungarian = document.getElementById("trHungarian").checked;
+  const body = {
+    px_um:          +document.getElementById("pxUm").value,
+    dt_s:           +document.getElementById("dtS").value,
+    max_dist:       +document.getElementById("trMaxDist").value,
+    max_missed:     +document.getElementById("trMaxMiss").value,
+    min_len:        +document.getElementById("trMinLen").value,
+    use_hungarian:  useHungarian,
+  };
+  await fetch("/api/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  startPoll(4, "track", msg => {
+    document.getElementById("btnTrack").disabled = false;
+    placePitMode = true;
+    activateStep(5);
+    const algo = useHungarian ? "🔀 Hungarian" : "Greedy";
+    setStatus(`✓ [${algo}] Tracking done — ${msg}.  Click image to place pit markers.`, "ok");
+    updateStatsCards();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP 6 — Analyse
+════════════════════════════════════════════════════════════ */
+async function doAnalyse() {
+  if (pitList.length === 0) { setStatus("Place at least one pit marker first", "err"); return; }
+  setStatus("Sending pit positions…", "inf");
+
+  // Save pits to backend
+  await fetch("/api/set_pits",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({pits: pitList.map(p=>({...p})) })});
+
+  document.getElementById("btnAnalyse").disabled = true;
+  await fetch("/api/analyse",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({max_assign_um: +document.getElementById("maxAssign").value})});
+
+  startPoll(6, "analyse", async msg => {
+    document.getElementById("btnAnalyse").disabled = false;
+    activateStep(6);
+    setStatus("✓ Analysis complete! — "+msg, "ok");
+    await loadResults();
+    switchTab("results");
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Load & display results
+════════════════════════════════════════════════════════════ */
+async function loadResults() {
+  const r = await fetch("/api/get_results").then(r=>r.json());
+  if (r.error) return;
+
+  // Show overlay in overview tab
+  document.getElementById("overviewEmpty").style.display = "none";
+  document.getElementById("overviewStats").style.display = "block";
+
+  updateStatsCards(r.stats);
+
+  const ov = document.getElementById("overviewOverlay");
+  if (r.overlay_b64) {
+    ov.innerHTML = `<img class="result-img" src="data:image/png;base64,${r.overlay_b64}" alt="Overlay">`;
+  }
+
+  // Per-pit plots
+  document.getElementById("resultsEmpty").style.display = "none";
+  document.getElementById("resultsContent").style.display = "block";
+
+  const tabBar = document.getElementById("tabBar");
+  // Remove old pit tabs
+  tabBar.querySelectorAll(".pit-tab-btn").forEach(b=>b.remove());
+
+  const plotsArea = document.getElementById("pitPlotsArea");
+  plotsArea.innerHTML = "";
+
+  // Stats table
+  let tableHtml = `<table class="pit-stats-table">
+    <thead><tr><th>Pit</th><th>Tracks</th><th>Observations</th><th>Mean r (µm)</th><th>Max r (µm)</th></tr></thead>
+    <tbody>`;
+  for (const [pid, s] of Object.entries(r.pit_stats||{})) {
+    tableHtml += `<tr>
+      <td class="td-accent">${pid}</td>
+      <td>${s.n_tracks}</td><td>${s.n_obs}</td>
+      <td>${s.mean_r}</td><td>${s.max_r}</td>
+    </tr>`;
+  }
+  tableHtml += "</tbody></table>";
+  plotsArea.insertAdjacentHTML("beforeend", tableHtml);
+
+  // Per-pit plot sections (3 separate images: distance, angle, intensity)
+  const plotLabels = {
+    r_b64: "r(t) — Distance",
+    a_b64: "α(t) — Angle",
+    i_b64: "I(t) — Intensity",
+  };
+  for (const [pid, plots] of Object.entries(r.pit_plots||{})) {
+    const section = document.createElement("div");
+    section.style.cssText = "margin-bottom:28px;";
+    const header = document.createElement("div");
+    header.style.cssText = "font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:10px;letter-spacing:0.1em;border-bottom:1px solid var(--border);padding-bottom:6px;";
+    header.textContent = pid + " — Analysis Graphs";
+    section.appendChild(header);
+    if (typeof plots === "string") {
+      const img = document.createElement("img");
+      img.className = "result-img";
+      img.src = "data:image/png;base64," + plots;
+      img.alt = pid + " graphs";
+      section.appendChild(img);
+    } else {
+      const grid = document.createElement("div");
+      grid.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;";
+      for (const [key, label] of Object.entries(plotLabels)) {
+        const b64 = plots[key];
+        if (!b64) continue;
+        const card = document.createElement("div");
+        card.style.cssText = "background:var(--surf2);border:1px solid var(--border);padding:8px;";
+        const lbl = document.createElement("div");
+        lbl.style.cssText = "font-family:var(--mono);font-size:10px;color:var(--muted2);margin-bottom:6px;letter-spacing:0.08em;text-transform:uppercase;";
+        lbl.textContent = label;
+        const img = document.createElement("img");
+        img.style.cssText = "width:100%;display:block;";
+        img.src = "data:image/png;base64," + b64;
+        img.alt = pid + " " + label;
+        card.appendChild(lbl);
+        card.appendChild(img);
+        grid.appendChild(card);
+      }
+      section.appendChild(grid);
+    }
+    plotsArea.appendChild(section);
+  }
+}
+
+async function updateStatsCards(stats) {
+  if (!stats) {
+    const r = await fetch("/api/get_frame_preview").then(r=>r.json());
+    stats = r.stats || {};
+  }
+  const grid = document.getElementById("statsCards");
+  const items = [
+    ["Raw frames",   stats.raw_frames,   ""],
+    ["Crop frames",  stats.crop_frames,  ""],
+    ["Prep frames",  stats.prep_frames,  ""],
+    ["Detections",   stats.n_detections, ""],
+    ["Detector",     stats.detector,     ""],
+    ["Tracks",       stats.n_tracks,     ""],
+    ["Track algo",   stats.track_algo,   ""],
+    ["P80 NN dist",  stats.p80_nn,       "px"],
+  ].filter(([,v]) => v !== undefined);
+
+  grid.innerHTML = items.map(([label, value, unit]) => `
+    <div class="stat-card">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${value ?? "—"}</div>
+      ${unit ? `<div class="stat-unit">${unit}</div>` : ""}
+    </div>
+  `).join("");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Reset
+════════════════════════════════════════════════════════════ */
+async function resetAll() {
+  if (!confirm("Reset all state? This will clear all loaded data.")) return;
+  await fetch("/api/reset",{method:"POST"});
+  pitList = []; pitCounter = 0; frameImg = null;
+  _detN = 0; _detCur = 0;
+  canvas.style.display = "none";
+  document.getElementById("framePlaceholder").style.display = "flex";
+  document.getElementById("rawInfo").style.display = "none";
+  document.getElementById("overviewEmpty").style.display = "block";
+  document.getElementById("overviewStats").style.display = "none";
+  document.getElementById("detectionEmpty").style.display = "block";
+  document.getElementById("detectionContent").style.display = "none";
+  document.getElementById("resultsEmpty").style.display = "block";
+  document.getElementById("resultsContent").style.display = "none";
+  document.getElementById("statsCards").innerHTML = "";
+  document.getElementById("overviewOverlay").innerHTML = "";
+  document.getElementById("pitPlotsArea").innerHTML = "";
+  document.getElementById("pitList").innerHTML = "";
+  document.getElementById("exportStatus").style.display = "none";
+  cropRect = null; cropMode = false; placePitMode = false;
+  ["btnCrop","btnPrep","btnDetect","btnTrack","btnAnalyse"].forEach(id=>{
+    const el = document.getElementById(id); if (el) el.disabled = true;
+  });
+  activateStep(0);
+  switchTab("overview");
+  setStatus("Reset. Load a dataset to begin.", "");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Init
+════════════════════════════════════════════════════════════ */
+checkDeps();
+</script>
+</body>
+</html>
